@@ -2,6 +2,33 @@ from random import randint
 import re
 import socket
 import struct
+import stun
+
+
+def check_NAT_status():
+    # list of additional stun servers taken (and tested) from natvpn project
+    # https://code.google.com/p/natvpn/source/browse/trunk/stun_server_list
+    # removed those that didn't ping back.
+    stun.stun_servers_list = stun.stun_servers_list + ('stun.l.google.com',
+                                                       'stun1.l.google.com',
+                                                       'stun2.l.google.com',
+                                                       'stun3.l.google.com',
+                                                       'stun4.l.google.com',
+                                                       'stun.ekiga.net',
+                                                       'stun.ideasip.com',
+                                                       'stun.iptel.org',
+                                                       'stun.schlund.de',
+                                                       'stunserver.org',
+                                                       'stun.voiparound.com',
+                                                       'stun.voipbuster.com',
+                                                       'stun.voipstunt.com',
+                                                       'stun.voxgratia.org',
+                                                       'stun.xten.com')
+
+    nat_type, external_ip, external_port = stun.get_ip_info()
+    return {'nat_type': nat_type,
+            'external_ip': external_ip,
+            'external_port': external_port}
 
 
 def is_local_tcp_port_listening(port):

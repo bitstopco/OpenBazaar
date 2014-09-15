@@ -144,7 +144,8 @@ def start_node(my_market_ip,
                log_level=None,
                database='db/ob.db',
                disable_upnp=False,
-               disable_open_browser=False):
+               disable_open_browser=False,
+               nat_status=None):
 
     try:
         logging.basicConfig(
