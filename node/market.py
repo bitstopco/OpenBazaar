@@ -92,7 +92,8 @@ class Market(object):
     def on_listing_results(self, results):
         self.log.debug('Listings %s' % results)
 
-    def process_contract_image(self, image):
+    @staticmethod
+    def process_contract_image(image):
         uri = DataURI(image)
         imageData = uri.data
         # mime_type = uri.mimetype
@@ -102,10 +103,11 @@ class Market(object):
         croppedImage = ImageOps.fit(image, (200, 200), centering=(0.5, 0.5))
         data = StringIO()
         croppedImage.save(data, format='PNG')
-        new_uri = DataURI.make('image/png',
-                               charset=charset,
-                               base64=True,
-                               data=data.getvalue())
+        new_uri = DataURI.make(
+            'image/png',
+            charset=charset,
+            base64=True,
+            data=data.getvalue())
         data.close()
 
         return new_uri
@@ -495,8 +497,7 @@ class Market(object):
                                      "item_title": contract_body.get('Contract').get('item_title'),
                                      "item_desc": contract_body.get('Contract').get('item_desc'),
                                      "item_condition": contract_body.get('Contract').get('item_condition'),
-                                     "item_quantity_available": contract_body.get('Contract').get('item_quantity'),
-                                     })
+                                     "item_quantity_available": contract_body.get('Contract').get('item_quantity')})
             except:
                 self.log.error('Problem loading the contract body JSON')
 
@@ -603,8 +604,7 @@ class Market(object):
                                      settings['arbiter'] if 'arbiter' in settings else '',
                                      settings['notary'] if 'notary' in settings else '',
                                      settings['arbiterDescription'] if 'arbiterDescription' in settings else '',
-                                     self.transport.sin)
-                          )
+                                     self.transport.sin))
 
         t = Thread(target=send_page_query)
         t.start()
