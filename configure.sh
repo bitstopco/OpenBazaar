@@ -141,12 +141,16 @@ function installArch {
   set -x
 
   sudo pacman -Sy
-  sudo pacman -S base-devel python2 python2-pip python2-pyzmq rng-tools
-  sudo pacman -S gcc libjpeg zlib sqlite3 openssl
-  pushd pysqlcipher
-  sudo python2.7 setup.py install
-  popd
-  sudo pip2 install -r requirements.txt
+  #sudo pacman -S --needed base-devel #Can conflict with multilib packages. Uncomment this line if you don't already have base-devel installed
+  sudo pacman -S --needed python2 python2-pip python2-virtualenv python2-pyzmq rng-tools libjpeg zlib sqlite3 openssl
+
+  if [ ! -d "./env" ]; then
+    virtualenv2 env
+  fi
+
+  ./env/bin/pip install ./pysqlcipher
+  ./env/bin/pip install -r requirements.txt
+
   doneMessage
 }
 
@@ -165,6 +169,27 @@ function installPortage {
   doneMessage
 }
 
+function installFedora {
+  #print commands
+  set -x
+
+  sudo yum install -y http://linux.ringingliberty.com/bitcoin/f18/x86_64/bitcoin-release-1-4.noarch.rpm
+
+  sudo yum -y install python-pip python-zmq rng-tools openssl \
+  openssl-devel alien python-virtualenv make automake gcc gcc-c++ \
+  kernel-devel python-devel openjpeg-devel zlib-devel sqlite \
+   zeromq-devel zeromq python python-qt4 openssl-compat-bitcoin-libs
+
+  if [ ! -d "./env" ]; then
+    virtualenv env
+  fi
+
+  ./env/bin/pip install ./pysqlcipher
+  ./env/bin/pip install -r requirements.txt
+
+  doneMessage
+}
+
 if [[ $OSTYPE == darwin* ]] ; then
   installMac
 elif [[ $OSTYPE == linux-gnu || $OSTYPE == linux-gnueabihf ]]; then
@@ -172,6 +197,8 @@ elif [[ $OSTYPE == linux-gnu || $OSTYPE == linux-gnueabihf ]]; then
     installArch
   elif [ -f /etc/gentoo-release ]; then
     installPortage
+  elif [ -f /etc/fedora-release ]; then
+    installFedora
   else
     installUbuntu
   fi

@@ -30,6 +30,7 @@ class PeerConnection(object):
 
     def create_zmq_socket(self):
         self.log.info('Creating Socket')
+
         try:
             socket = self.ctx.socket(zmq.REQ)
             socket.setsockopt(zmq.LINGER, 0)
@@ -92,18 +93,28 @@ class CryptoPeerConnection(PeerConnection):
 
         # self._priv = transport._myself
         self.pub = pub
-        self.ip = urlparse(address).hostname
-        self.port = urlparse(address).port
+
+        # Convert URI over
+        parseResult = urlparse(address)
+        self.ip = parseResult.hostname
+        self.port = parseResult.port
+        self.host_to_ip()
+
         self.nickname = nickname
         self.sin = sin
         self.peer_alive = False  # unused; might remove it later if unnecessary
         self.guid = guid
+        self.address = "tcp://%s:%s" % (self.ip, self.port)
 
         PeerConnection.__init__(self, transport, address)
 
         self.log = logging.getLogger(
             '[%s] %s' % (transport.market_id, self.__class__.__name__)
         )
+
+    def host_to_ip(self):
+        addr_info = socket.getaddrinfo(str(self.ip), self.port)
+        self.ip = addr_info[0][4][0]
 
     def start_handshake(self, handshake_cb=None):
         if self.check_port():
@@ -163,6 +174,7 @@ class CryptoPeerConnection(PeerConnection):
         return obelisk.EncodeBase58Check('\x0F\x02%s' + guid.decode('hex'))
 
     def check_port(self):
+
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(1)
@@ -194,7 +206,7 @@ class CryptoPeerConnection(PeerConnection):
         try:
             if self.pub is not None:
                 hexkey = hexToPubkey(self.pub)
-                return ec.ECC(curve='secp256k1').encrypt(data, hexkey)
+                return ec.ECC.encrypt(data, hexkey)
             else:
                 self.log.error('Public Key is missing')
                 return False
