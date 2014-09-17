@@ -4,6 +4,7 @@ import argparse
 import os
 from network_util import init_aditional_STUN_servers, check_NAT_status
 
+
 def is_osx():
     return os.uname()[0].startswith('Darwin')
 
@@ -42,42 +43,41 @@ def getDefaults():
             'LOG_LEVEL': 10,  # CRITICAL=50, ERROR=40, WARNING=30, DEBUG=10, NOTSET=0
             'NODES': 3,
             'HTTP_IP': '127.0.0.1',
-            'HTTP_PORT':-1,
+            'HTTP_PORT': -1,
             'BITMESSAGE_USER': None,
             'BITMESSAGE_PASS': None,
-            'BITMESSAGE_PORT':-1,
+            'BITMESSAGE_PORT': -1,
             'ENABLE_IP_CHECKER': False,
             'CONFIG_FILE': None
             }
 
 
-def initArgumentParser():
-    DEFAULTS = getDefaults()
+def initArgumentParser(defaults):
 
     parser = argparse.ArgumentParser(usage=usage())
 
     parser.add_argument('-i', '--server-public-ip', help='Server Public IP')
 
     parser.add_argument('-p', '--server-public-port', '--my-market-port',
-                        default=DEFAULTS['SERVER_PORT'],
+                        default=defaults['SERVER_PORT'],
                         type=int,
                         help='Server Public Port (default 12345)')
 
     parser.add_argument('-k', '--http-ip', '--web-ip',
-                        default=DEFAULTS['HTTP_IP'],
-                        help='Web Interface IP (default 127.0.0.1;' + 
+                        default=defaults['HTTP_IP'],
+                        help='Web Interface IP (default 127.0.0.1;' +
                         ' use 0.0.0.0 for any)')
 
     parser.add_argument('-q', '--web-port', '--http-port',
-                        type=int, default=DEFAULTS['HTTP_PORT'],
+                        type=int, default=defaults['HTTP_PORT'],
                         help='Web Interface Port (default random)')
 
     parser.add_argument('-l', '--log',
-                        default=DEFAULTS['LOG_DIR'] + os.sep + DEFAULTS['LOG_FILE'],
+                        default=defaults['LOG_DIR'] + os.sep + defaults['LOG_FILE'],
                         help='Log File Path')
 
     parser.add_argument('--log-level',
-                        default=DEFAULTS['LOG_LEVEL'],
+                        default=defaults['LOG_LEVEL'],
                         help='Log Level (Default: 10 - DEBUG')
 
     parser.add_argument('-d', '--development-mode',
@@ -85,7 +85,7 @@ def initArgumentParser():
                         help='Development mode')
 
     parser.add_argument("--db-path", "--database",
-                        default=DEFAULTS['DB_DIR'] + os.sep + DEFAULTS['DB_FILE'],
+                        default=defaults['DB_DIR'] + os.sep + defaults['DB_FILE'],
                         help="Database filename")
 
     parser.add_argument('-n', '--dev-nodes',
@@ -93,16 +93,16 @@ def initArgumentParser():
                         help='Number of Dev nodes to start up')
 
     parser.add_argument('--bitmessage-user', '--bmuser',
-                        default=DEFAULTS['BITMESSAGE_USER'],
+                        default=defaults['BITMESSAGE_USER'],
                         help='Bitmessage API username')
 
     parser.add_argument('--bitmessage-pass', '--bmpass',
-                        default=DEFAULTS['BITMESSAGE_PASS'],
+                        default=defaults['BITMESSAGE_PASS'],
                         help='Bitmessage API password')
 
     parser.add_argument('--bitmessage-port', '--bmport',
                         type=int,
-                        default=DEFAULTS['BITMESSAGE_PORT'],
+                        default=defaults['BITMESSAGE_PORT'],
                         help='Bitmessage API port (eg: 8444)')
 
     parser.add_argument('-u', '--market-id',
@@ -110,27 +110,30 @@ def initArgumentParser():
 
     parser.add_argument('-j', '--disable-upnp',
                         action='store_true',
-                        default=DEFAULTS['DISABLE_UPNP'],
+                        default=defaults['DISABLE_UPNP'],
                         help='Disable automatic UPnP port mappings')
 
     parser.add_argument('-S', '--seed-mode',
                         action='store_true',
-                        default=DEFAULTS['SEED_MODE'],
+                        default=defaults['SEED_MODE'],
                         help='Enable Seed Mode')
 
     parser.add_argument('-s', '--seeds',
                         nargs='*',
                         default=[])
+
     parser.add_argument('--disable-open-browser',
                         action='store_true',
-                        default=DEFAULTS['DISABLE_OPEN_DEFAULT_WEBBROWSER'],
-                        help='Don\'t open preferred web browser ' + 
+                        default=defaults['DISABLE_OPEN_DEFAULT_WEBBROWSER'],
+                        help='Don\'t open preferred web browser ' +
                         'automatically on start')
+
     parser.add_argument('--config-file',
-                        default=DEFAULTS['CONFIG_FILE'],
+                        default=defaults['CONFIG_FILE'],
                         help='Disk path to an OpenBazaar configuration file')
+
     parser.add_argument('--enable-ip-checker',
-                        default=DEFAULTS['ENABLE_IP_CHECKER'])
+                        default=defaults['ENABLE_IP_CHECKER'])
 
     parser.add_argument('command')
     return parser
@@ -210,6 +213,8 @@ openbazaar [options] <command>
 
 
 def start(arguments, defaults):
+    """
+    """
     print "Checking NAT Status..."
     init_aditional_STUN_servers()
     nat_status = check_NAT_status()
@@ -238,7 +243,6 @@ def start(arguments, defaults):
         if nat_status['nat_type'] not in (stun.SymmetricNAT,
                                           stun.SymmetricUDPFirewall):
             my_market_port = nat_status['external_port']
-
 
     # http ip
     http_ip = defaults['HTTP_IP']
@@ -323,6 +327,7 @@ def start(arguments, defaults):
         enable_ip_checker = True
 
     import openbazaar_daemon
+    from threading import Thread
     ob_ctx = openbazaar_daemon.OpenBazaarContext(nat_status,
                                                  my_market_ip,
                                                  my_market_port,
@@ -348,18 +353,23 @@ def start(arguments, defaults):
     print "\nOpenBazaarContextObject:"
     print ob_ctx
 
-    openbazaar_daemon.start_node(ob_ctx)
+    ob_daemon_thread = Thread(target=openbazaar_daemon.start_node,
+                              name='openbazaar_daemon_thread',
+                              args=(ob_ctx))
+    ob_daemon_thread.daemon = True
+    ob_daemon_thread.start()
+    # openbazaar_daemon.start_node(ob_ctx)
 
 if __name__ == '__main__':
-
-    parser = initArgumentParser()
+    defaults = getDefaults()
+    parser = initArgumentParser(defaults)
     arguments = parser.parse_args()
 
     if is_osx():
         osx_check_dyld_library_path()
 
-    defaults = getDefaults()
     print "Command:", arguments.command
+
     if arguments.command == 'start':
         start(arguments, defaults)
     elif arguments.command == 'stop':
