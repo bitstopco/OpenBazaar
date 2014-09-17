@@ -32,32 +32,30 @@ import random
 import hashlib
 
 
-ioloop.install()
-
-
 class TransportLayer(object):
     # Transport layer manages a list of peers
-    def __init__(self, market_id, my_ip, my_port, my_guid, nickname=None):
+    def __init__(self, ob_ctx, guid, nickname=None):
+        # market_id, my_ip, my_port, my_guid
 
         self.peers = {}
         self.callbacks = defaultdict(list)
         self.timeouts = []
-        self.port = my_port
-        self.ip = my_ip
-        self.guid = my_guid
-        self.market_id = market_id
+        self.port = ob_ctx.my_market_port
+        self.ip = ob_ctx.my_market_ip
+        self.guid = guid
+        self.market_id = ob_ctx.market_id
         self.nickname = nickname
         self.handler = None
 
         try:
-            socket.inet_pton(socket.AF_INET6, my_ip)
+            socket.inet_pton(socket.AF_INET6, self.ip)
             my_uri = 'tcp://[%s]:%s' % (self.ip, self.port)
         except socket.error:
             my_uri = 'tcp://%s:%s' % (self.ip, self.port)
         self.uri = my_uri
 
         self.log = logging.getLogger(
-            '[%s] %s' % (market_id, self.__class__.__name__)
+            '[%s] %s' % (ob_ctx.market_id, self.__class__.__name__)
         )
 
     def add_callbacks(self, callbacks):
@@ -263,11 +261,12 @@ class TransportLayer(object):
 
 class CryptoTransportLayer(TransportLayer):
 
-    def __init__(self, my_ip, my_port, market_id, db, bm_user=None, bm_pass=None,
-                 bm_port=None, seed_mode=0, dev_mode=False):
+    def __init__(self, ob_ctx, db):
+
+        self.ob_ctx = ob_ctx
 
         self.log = logging.getLogger(
-            '[%s] %s' % (market_id, self.__class__.__name__)
+            '[%s] %s' % (ob_ctx.market_id, self.__class__.__name__)
         )
         requests_log = logging.getLogger("requests")
         requests_log.setLevel(logging.WARNING)
@@ -276,24 +275,32 @@ class CryptoTransportLayer(TransportLayer):
         self.db = db
 
         self.bitmessage_api = None
-        if (bm_user, bm_pass, bm_port) != (None, None, None):
-            if not self._connect_to_bitmessage(bm_user, bm_pass, bm_port):
+        if (ob_ctx.bm_user, ob_ctx.bm_pass, ob_ctx.bm_port) != (None, None, -1):
+            if not self._connect_to_bitmessage(ob_ctx.bm_user, ob_ctx.bm_pass, ob_ctx.bm_port):
                 self.log.info('Bitmessage not installed or started')
 
         try:
-            socket.inet_pton(socket.AF_INET6, my_ip)
-            my_uri = "tcp://[%s]:%s" % (my_ip, my_port)
+            socket.inet_pton(socket.AF_INET6, ob_ctx.my_market_ip)
+            my_uri = "tcp://[%s]:%s" % (ob_ctx.my_market_ip, ob_ctx.my_market_port)
         except socket.error:
-            my_uri = "tcp://%s:%s" % (my_ip, my_port)
+            my_uri = "tcp://%s:%s" % (ob_ctx.my_market_ip, ob_ctx.my_market_port)
 
-        self.market_id = market_id
+        self.market_id = ob_ctx.market_id
         self.nick_mapping = {}
         self.uri = my_uri
-        self.ip = my_ip
+        self.ip = ob_ctx.my_market_ip
+        self.port = ob_ctx.my_market_port
         self.nickname = ""
-        self._dev_mode = dev_mode
+        self.dev_mode = ob_ctx.dev_mode
 
-        # Set up
+        # Set up.
+        #
+        # Here we fetch the GUID which was created initially
+        # on _generate_new_keypair
+        # The GUID is a ripemd 160 bit hex encoded hash of the sha256(public key)
+        #
+        # functionally speaking:
+        # GUID(public_key) = hex(ripemd160(sha256(public_key))
         self._setup_settings()
 
         self.dht = DHT(self, self.market_id, self.settings, self.db)
@@ -302,13 +309,12 @@ class CryptoTransportLayer(TransportLayer):
         #                       privkey=self.secret.decode('hex'),
         #                       curve='secp256k1')
 
-        TransportLayer.__init__(self, market_id, my_ip, my_port,
-                                self.guid, self.nickname)
+        TransportLayer.__init__(self, ob_ctx, self.guid, self.nickname)
 
         self.setup_callbacks()
         self.listen(self.pubkey)
 
-        if seed_mode == 0 and not dev_mode:
+        if ob_ctx.enable_ip_checker and not ob_ctx.seed_mode and not ob_ctx.dev_mode:
             self.start_ip_address_checker()
 
     def setup_callbacks(self):
@@ -319,32 +325,36 @@ class CryptoTransportLayer(TransportLayer):
 
     def start_ip_address_checker(self):
         '''Checks for possible public IP change'''
-        self.caller = PeriodicCallback(self._ip_updater_periodic_callback, 5000, ioloop.IOLoop.instance())
-        self.caller.start()
+        if self.ob_ctx.enable_ip_checker:
+            self.caller = PeriodicCallback(self._ip_updater_periodic_callback, 5000, ioloop.IOLoop.instance())
+            self.caller.start()
+            self.log.info("IP_CHECKER_ENABLED: Periodic IP Address Checker started.")
 
     def _ip_updater_periodic_callback(self):
-        try:
-            r = requests.get('https://icanhazip.com')
+        if self.ob_ctx.enable_ip_checker:
+            try:
+                r = requests.get('https://icanhazip.com')
 
-            if r and hasattr(r, 'text'):
-                ip = r.text
-                ip = ip.strip(' \t\n\r')
-                if ip != self.ip:
-                    self.ip = ip
-                    try:
-                        socket.inet_pton(socket.AF_INET6, self.ip)
-                        my_uri = 'tcp://[%s]:%s' % (self.ip, self.port)
-                    except socket.error:
-                        my_uri = 'tcp://%s:%s' % (self.ip, self.port)
-                    self.uri = my_uri
-                    self.stream.close()
-                    self.listen(self.pubkey)
+                if r and hasattr(r, 'text'):
+                    ip = r.text
+                    ip = ip.strip(' \t\n\r')
+                    if ip != self.ip:
+                        self.ip = ip
+                        self.ob_ctx.my_market_ip
+                        try:
+                            socket.inet_pton(socket.AF_INET6, self.ip)
+                            my_uri = 'tcp://[%s]:%s' % (self.ip, self.port)
+                        except socket.error:
+                            my_uri = 'tcp://%s:%s' % (self.ip, self.port)
+                        self.uri = my_uri
+                        self.stream.close()
+                        self.listen(self.pubkey)
 
-                    self.dht._iterativeFind(self.guid, [], 'findNode')
-            else:
-                self.log.error('Could not get IP')
-        except Exception as e:
-            self.log.error('[Requests] error: %s' % e)
+                        self.dht._iterativeFind(self.guid, [], 'findNode')
+                else:
+                    self.log.error('Could not get IP')
+            except Exception as e:
+                self.log.error('[Requests] error: %s' % e)
 
     def save_peer_to_db(self, peer_tuple):
         uri = peer_tuple[0]
@@ -545,8 +555,6 @@ class CryptoTransportLayer(TransportLayer):
     def join_network(self, seed_peers=[], callback=lambda msg: None):
 
         self.log.info('Joining network')
-
-        known_peers = []
 
         # Connect up through seed servers
         for idx, seed in enumerate(seed_peers):

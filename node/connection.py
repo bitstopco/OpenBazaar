@@ -12,8 +12,6 @@ import zmq
 import errno
 import json
 
-ioloop.install()
-
 
 class PeerConnection(object):
     def __init__(self, transport, address, nickname=""):

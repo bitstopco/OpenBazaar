@@ -5,7 +5,8 @@ import struct
 import stun
 
 
-def check_NAT_status():
+def init_aditional_STUN_servers():
+    """try calling this method only once"""
     # list of additional stun servers taken (and tested) from natvpn project
     # https://code.google.com/p/natvpn/source/browse/trunk/stun_server_list
     # removed those that didn't ping back.
@@ -25,6 +26,8 @@ def check_NAT_status():
                                                        'stun.voxgratia.org',
                                                        'stun.xten.com')
 
+
+def check_NAT_status():
     nat_type, external_ip, external_port = stun.get_ip_info()
     return {'nat_type': nat_type,
             'external_ip': external_ip,

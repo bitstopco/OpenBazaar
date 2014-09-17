@@ -2,8 +2,7 @@
 # OpenBazaar's launcher script.
 import argparse
 import os
-from network_util import check_NAT_status
-
+from network_util import init_aditional_STUN_servers, check_NAT_status
 
 def is_osx():
     return os.uname()[0].startswith('Darwin')
@@ -29,82 +28,6 @@ def osx_check_dyld_library_path():
             pass
 
 
-def initArgumentParser():
-    parser = argparse.ArgumentParser(usage=usage())
-
-    parser.add_argument('-i', '--server-public-ip', help='Server Public IP')
-
-    parser.add_argument('-p', '--server-public-port', '--my-market-port',
-                        default=12345,
-                        type=int,
-                        help='Server Public Port (default 12345)')
-
-    parser.add_argument('-k', '--http-ip', '--web-ip',
-                        default='127.0.0.1',
-                        help='Web Interface IP (default 127.0.0.1;' +
-                        ' use 0.0.0.0 for any)')
-
-    parser.add_argument('-q', '--web-port', '--http-port',
-                        type=int, default=-1,
-                        help='Web Interface Port (default random)')
-
-    parser.add_argument('-l', '--log',
-                        default='logs/production.log',
-                        help='Log File')
-
-    parser.add_argument('-d', '--development-mode', action='store_true',
-                        help='Development mode')
-
-    parser.add_argument("--database",
-                        default='db/ob.db',
-                        help="Database filename")
-
-    parser.add_argument('-n', '--dev-nodes',
-                        type=int,
-                        help='Number of Dev nodes to start up')
-
-    parser.add_argument('--bitmessage-user', '--bmuser',
-                        default='username',
-                        help='Bitmessage API username')
-
-    parser.add_argument('--bitmessage-pass', '--bmpass',
-                        default='password',
-                        help='Bitmessage API password')
-
-    parser.add_argument('--bitmessage-port', '--bmport',
-                        type=int,
-                        default=8442,
-                        help='Bitmessage API port')
-
-    parser.add_argument('-u', '--market-id',
-                        help='Market ID')
-
-    parser.add_argument('-j', '--disable-upnp',
-                        action='store_true',
-                        default=False,
-                        help='Disable automatic UPnP port mappings')
-
-    parser.add_argument('-S', '--seed-mode',
-                        action='store_true',
-                        default=False,
-                        help='Enable Seed Mode')
-
-    parser.add_argument('-s', '--seeds',
-                        nargs='*',
-                        default=[])
-    parser.add_argument('--disable-open-browser',
-                        action='store_true',
-                        default=False,
-                        help='Don\'t open preferred web browser ' +
-                        'automatically on start')
-    parser.add_argument('--config-file',
-                        default=None,
-                        help='Disk path to an OpenBazaar configuration file')
-
-    parser.add_argument('command')
-    return parser
-
-
 def getDefaults():
     return {'SERVER_PORT': 12345,
             'LOG_DIR': 'logs',
@@ -112,17 +35,105 @@ def getDefaults():
             'DB_DIR': 'db',
             'DB_FILE': 'ob.db',
             'DEVELOPMENT': False,
+            'SEED_MODE': False,
             'SEED_HOSTNAMES': 'seed.openbazaar.org seed2.openbazaar.org seed.openlabs.co us.seed.bizarre.company eu.seed.bizarre.company'.split(),
             'DISABLE_UPNP': False,
             'DISABLE_OPEN_DEFAULT_WEBBROWSER': False,
             'LOG_LEVEL': 10,  # CRITICAL=50, ERROR=40, WARNING=30, DEBUG=10, NOTSET=0
             'NODES': 3,
             'HTTP_IP': '127.0.0.1',
-            'HTTP_PORT': -1,
-            'BITMESSAGE_USER': 'username',
-            'BITMESSAGE_PASS': 'password',
-            'BITMESSAGE_PORT': 8442
+            'HTTP_PORT':-1,
+            'BITMESSAGE_USER': None,
+            'BITMESSAGE_PASS': None,
+            'BITMESSAGE_PORT':-1,
+            'ENABLE_IP_CHECKER': False,
+            'CONFIG_FILE': None
             }
+
+
+def initArgumentParser():
+    DEFAULTS = getDefaults()
+
+    parser = argparse.ArgumentParser(usage=usage())
+
+    parser.add_argument('-i', '--server-public-ip', help='Server Public IP')
+
+    parser.add_argument('-p', '--server-public-port', '--my-market-port',
+                        default=DEFAULTS['SERVER_PORT'],
+                        type=int,
+                        help='Server Public Port (default 12345)')
+
+    parser.add_argument('-k', '--http-ip', '--web-ip',
+                        default=DEFAULTS['HTTP_IP'],
+                        help='Web Interface IP (default 127.0.0.1;' + 
+                        ' use 0.0.0.0 for any)')
+
+    parser.add_argument('-q', '--web-port', '--http-port',
+                        type=int, default=DEFAULTS['HTTP_PORT'],
+                        help='Web Interface Port (default random)')
+
+    parser.add_argument('-l', '--log',
+                        default=DEFAULTS['LOG_DIR'] + os.sep + DEFAULTS['LOG_FILE'],
+                        help='Log File Path')
+
+    parser.add_argument('--log-level',
+                        default=DEFAULTS['LOG_LEVEL'],
+                        help='Log Level (Default: 10 - DEBUG')
+
+    parser.add_argument('-d', '--development-mode',
+                        action='store_true',
+                        help='Development mode')
+
+    parser.add_argument("--db-path", "--database",
+                        default=DEFAULTS['DB_DIR'] + os.sep + DEFAULTS['DB_FILE'],
+                        help="Database filename")
+
+    parser.add_argument('-n', '--dev-nodes',
+                        type=int,
+                        help='Number of Dev nodes to start up')
+
+    parser.add_argument('--bitmessage-user', '--bmuser',
+                        default=DEFAULTS['BITMESSAGE_USER'],
+                        help='Bitmessage API username')
+
+    parser.add_argument('--bitmessage-pass', '--bmpass',
+                        default=DEFAULTS['BITMESSAGE_PASS'],
+                        help='Bitmessage API password')
+
+    parser.add_argument('--bitmessage-port', '--bmport',
+                        type=int,
+                        default=DEFAULTS['BITMESSAGE_PORT'],
+                        help='Bitmessage API port (eg: 8444)')
+
+    parser.add_argument('-u', '--market-id',
+                        help='Market ID')
+
+    parser.add_argument('-j', '--disable-upnp',
+                        action='store_true',
+                        default=DEFAULTS['DISABLE_UPNP'],
+                        help='Disable automatic UPnP port mappings')
+
+    parser.add_argument('-S', '--seed-mode',
+                        action='store_true',
+                        default=DEFAULTS['SEED_MODE'],
+                        help='Enable Seed Mode')
+
+    parser.add_argument('-s', '--seeds',
+                        nargs='*',
+                        default=[])
+    parser.add_argument('--disable-open-browser',
+                        action='store_true',
+                        default=DEFAULTS['DISABLE_OPEN_DEFAULT_WEBBROWSER'],
+                        help='Don\'t open preferred web browser ' + 
+                        'automatically on start')
+    parser.add_argument('--config-file',
+                        default=DEFAULTS['CONFIG_FILE'],
+                        help='Disk path to an OpenBazaar configuration file')
+    parser.add_argument('--enable-ip-checker',
+                        default=DEFAULTS['ENABLE_IP_CHECKER'])
+
+    parser.add_argument('command')
+    return parser
 
 
 def usage():
@@ -134,20 +145,30 @@ openbazaar [options] <command>
         stop             Stop OpenBazaar
 
     OPTIONS
-    -i, --server-public-ip
+    -i, --server-public-ip <ip address>
         Server public IP
 
-    -p, --server-public-port, --my-market-port
+    -p, --server-public-port, --my-market-port <port number>
         Server public (P2P) port (default 12345)
 
-    -k, --http-ip, --web-ip
+    -k, --http-ip, --web-ip <ip address>
         Web interface IP (default 127.0.0.1; use 0.0.0.0 for any)
 
-    -q, --web-port, --http-port
-        Web interface port (random by default)
+    -q, --web-port, --http-port <port number>
+        Web interface port (-1 = random by default)
 
-    -l, --log
-        Log file (default 'logs/production.log')
+    -l, --log <file path>
+        Log file path (default 'logs/production.log')
+
+    --log-level <level>
+        Log verbosity level (default: 10 - DEBUG)
+        Expected <level> values are:
+           0 - NOT SET
+          10 - DEBUG
+          20 - INFO
+          30 - WARNING
+          40 - ERROR
+          50 - CRITICAL
 
     -d, --development-mode
         Enable development mode
@@ -182,13 +203,15 @@ openbazaar [options] <command>
     --config-file
         Disk path to an OpenBazaar configuration file
 
-
+    --enable-ip-checker
+        Enable periodic IP address checking. In case you expect your IP to change rapidly.
 
 """
 
 
 def start(arguments, defaults):
     print "Checking NAT Status..."
+    init_aditional_STUN_servers()
     nat_status = check_NAT_status()
 
     # TODO: if a --config file has been specified
@@ -196,8 +219,6 @@ def start(arguments, defaults):
     # then override the rest that has been passed
     # through the command line.
 
-    # market ip
-    print arguments
     my_market_ip = ''
     if arguments.server_public_ip is not None:
         my_market_ip = arguments.server_public_ip
@@ -212,12 +233,12 @@ def start(arguments, defaults):
     else:
         import stun
         # let's try the external port if we're behind
-        # a non symmetric nat
-        print stun.SymmetricNAT
-        print stun.SymmetricUDPFirewall
+        # a non symmetric nat (e.g. Full Cone, Restricted Cone)
+        # learn more: http://think-like-a-computer.com/2011/09/16/types-of-nat/
         if nat_status['nat_type'] not in (stun.SymmetricNAT,
                                           stun.SymmetricUDPFirewall):
             my_market_port = nat_status['external_port']
+
 
     # http ip
     http_ip = defaults['HTTP_IP']
@@ -233,10 +254,15 @@ def start(arguments, defaults):
     if not os.path.exists(defaults['LOG_DIR']):
         os.makedirs(defaults['LOG_DIR'], 0755)
 
-    # log file
+    # log path
     log_path = defaults['LOG_DIR'] + os.sep + defaults['LOG_FILE']
     if arguments.log is not None and arguments.log != log_path:
         log_path = arguments.log
+
+    # log level
+    log_level = defaults['LOG_LEVEL']
+    if arguments.log_level is not None and arguments.log_level != log_level:
+        log_level = arguments.log_level
 
     # market id
     market_id = None
@@ -273,16 +299,13 @@ def start(arguments, defaults):
     if arguments.development_mode != dev_mode:
         dev_mode = arguments.development_mode
 
-    # log level
-    log_level = defaults['LOG_LEVEL']
-
     # database
     if not os.path.exists(defaults['DB_DIR']):
         os.makedirs(defaults['DB_DIR'], 0755)
 
-    database = defaults['DB_DIR'] + os.sep + defaults['DB_FILE']
-    if arguments.database != database:
-        database = arguments.database
+    db_path = defaults['DB_DIR'] + os.sep + defaults['DB_FILE']
+    if arguments.db_path != db_path:
+        db_path = arguments.db_path
 
     # disable upnp
     disable_upnp = defaults['DISABLE_UPNP']
@@ -294,42 +317,38 @@ def start(arguments, defaults):
     if arguments.disable_open_browser:
         disable_open_browser = True
 
-    print "my_market_ip", my_market_ip
-    print "my_market_port", my_market_port
-    print "http_ip", http_ip
-    print "http_port", http_port
-    print "log_path", log_path
-    print "market_id", market_id
-    print "bm_user", bm_user,
-    print "bm_pass", bm_pass,
-    print "bm_port", bm_port,
-    print "seed_peers", seed_peers
-    print "seed_mode", seed_mode
-    print "dev_mode", dev_mode
-    print "log_level", log_level
-    print "database", database
-    print "disable_upnp", disable_upnp
-    print "disable_open_browser", disable_open_browser
+    # enable ip checker
+    enable_ip_checker = defaults['ENABLE_IP_CHECKER']
+    if arguments.enable_ip_checker:
+        enable_ip_checker = True
 
     import openbazaar_daemon
-    openbazaar_daemon.start_node(my_market_ip,
-                                 my_market_port,
-                                 http_ip,
-                                 http_port,
-                                 log_path,
-                                 market_id,
-                                 bm_user,
-                                 bm_pass,
-                                 bm_port,
-                                 seed_peers,
-                                 seed_mode,
-                                 dev_mode,
-                                 log_level,
-                                 database,
-                                 disable_upnp,
-                                 disable_open_browser,
-                                 nat_status)
+    ob_ctx = openbazaar_daemon.OpenBazaarContext(nat_status,
+                                                 my_market_ip,
+                                                 my_market_port,
+                                                 http_ip,
+                                                 http_port,
+                                                 db_path,
+                                                 log_path,
+                                                 log_level,
+                                                 market_id,
+                                                 bm_user,
+                                                 bm_pass,
+                                                 bm_port,
+                                                 seed_peers,
+                                                 seed_mode,
+                                                 dev_mode,
+                                                 disable_upnp,
+                                                 disable_open_browser,
+                                                 enable_ip_checker)
 
+    print "Arguments:"
+    print arguments
+
+    print "\nOpenBazaarContextObject:"
+    print ob_ctx
+
+    openbazaar_daemon.start_node(ob_ctx)
 
 if __name__ == '__main__':
 

@@ -9,12 +9,9 @@ import pybitcointools
 from pybitcointools import *
 
 import tornado.websocket
-from zmq.eventloop import ioloop
 from twisted.internet import reactor
 from backuptool import BackupTool, Backup, BackupJSONEncoder
 import trust
-
-ioloop.install()
 
 
 class ProtocolHandler:
