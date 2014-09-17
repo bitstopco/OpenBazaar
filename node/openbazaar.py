@@ -17,16 +17,8 @@ def osx_check_dyld_library_path():
         print 'export DYLD_LIBRARY_PATH=$(brew --prefix openssl)/lib:${DYLD_LIBRARY_PATH}', "\n"
         print 'then restart OpenBazaar.', "\n"
 
-        from ctypes import cdll
-        try:
-            print "Attempting to load libcrypto.dylib and libssl.dylib."
-            openssl_prefix = os.popen('brew --prefix openssl')
-            if openssl_prefix is not None:
-                cdll.LoadLibrary(openssl_prefix + '/lib/libcrypto.dylib')
-                cdll.LoadLibrary(openssl_prefix + '/lib/libssl.dylib')
-                print "Attempting to load libcrypto.dylib and libssl.dylib."
-        except:
-            pass
+        import sys
+        sys.exit(1)
 
 
 def getDefaults():
