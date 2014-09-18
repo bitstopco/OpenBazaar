@@ -1,6 +1,7 @@
 #!./env/bin/python
 # OpenBazaar's launcher script.
 import argparse
+import openbazaar_daemon
 import os
 from network_util import init_aditional_STUN_servers, check_NAT_status
 
@@ -27,6 +28,7 @@ def getDefaults():
             'LOG_FILE': 'production.log',
             'DB_DIR': 'db',
             'DB_FILE': 'ob.db',
+            'DEV_DB_FILE': 'ob-dev.db',
             'DEVELOPMENT': False,
             'SEED_MODE': False,
             'SEED_HOSTNAMES': 'seed.openbazaar.org seed2.openbazaar.org seed.openlabs.co us.seed.bizarre.company eu.seed.bizarre.company'.split(),
@@ -204,13 +206,7 @@ openbazaar [options] <command>
 """
 
 
-def start(arguments, defaults):
-    """
-    """
-    print "Checking NAT Status..."
-    init_aditional_STUN_servers()
-    nat_status = check_NAT_status()
-
+def create_openbazaar_context(argument, default, nat_status):
     # TODO: if a --config file has been specified
     # first load config values from it
     # then override the rest that has been passed
@@ -318,8 +314,6 @@ def start(arguments, defaults):
     if arguments.enable_ip_checker:
         enable_ip_checker = True
 
-    import openbazaar_daemon
-    from threading import Thread
     ob_ctx = openbazaar_daemon.OpenBazaarContext(nat_status,
                                                  my_market_ip,
                                                  my_market_port,
@@ -339,17 +333,55 @@ def start(arguments, defaults):
                                                  disable_open_browser,
                                                  enable_ip_checker)
 
+    return ob_ctx
+
+
+def ensure_database_setup(ob_ctx, defaults):
+    db_path = ob_ctx.db_path
+    default_db_path = defaults['DB_DIR'] + os.sep + defaults['DB_FILE']
+    default_dev_db_path = defaults['DB_DIR'] + os.sep + defaults['DEV_DB_FILE']
+
+    if ob_ctx.dev_mode and db_path == default_db_path:
+        # override default db_path to developer database path.
+        db_path = default_dev_db_path
+
+    # make sure the folder exists wherever it is
+    db_dirname = os.path.dirname(db_path)
+    if not os.path.exists(db_dirname):
+        os.makedirs(db_dirname, 0755)
+
+    if not os.path.exists(db_path):
+        # setup the database if file not there.
+        from setup_db import setup_db
+        print "[openbazaar] bootstrapping database ", os.path.basename(db_path)
+        setup_db(db_path)
+        print "[openbazaar] database setup completed\n"
+
+
+def start(arguments, defaults):
+    """
+    """
+    print "Checking NAT Status..."
+    init_aditional_STUN_servers()
+    nat_status = check_NAT_status()
+
+    ob_ctx = create_openbazaar_context(arguments, defaults, nat_status)
+
+    ensure_database_setup(ob_ctx, defaults)
+
     print "Arguments:"
     print arguments
 
     print "\nOpenBazaarContextObject:"
     print ob_ctx
 
+    from threading import Thread
     ob_daemon_thread = Thread(target=openbazaar_daemon.start_node,
                               name='openbazaar_daemon_thread',
-                              args=(ob_ctx))
+                              args=(ob_ctx,))
     ob_daemon_thread.daemon = True
     ob_daemon_thread.start()
+    ob_daemon_thread.join()
     # openbazaar_daemon.start_node(ob_ctx)
 
 if __name__ == '__main__':
@@ -360,7 +392,7 @@ if __name__ == '__main__':
     if is_osx():
         osx_check_dyld_library_path()
 
-    print "Command:", arguments.command
+    print "Command: '" + arguments.command + "'"
 
     if arguments.command == 'start':
         start(arguments, defaults)
@@ -368,3 +400,7 @@ if __name__ == '__main__':
         pass
     elif arguments.command == 'status':
         pass
+    else:
+        print "\n[openbazaar] Invalid command '" + arguments.command + "'"
+        print "[openbazaar] Valid commands are 'start', 'stop', 'status'."
+        print "\n[openbazaar] Please try again.\n"

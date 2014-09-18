@@ -213,10 +213,6 @@ def start_ioloop():
 
 
 def start_node(ob_ctx):
-    io_loop_thread = Thread(target=start_ioloop, name="ioloop_starter_thread")
-    io_loop_thread.daemon = True
-    io_loop_thread.start()
-
     try:
         logging.basicConfig(
             level=int(ob_ctx.log_level),
@@ -269,3 +265,5 @@ def start_node(ob_ctx):
     except ValueError:
         # not the main thread
         pass
+
+    start_ioloop()
