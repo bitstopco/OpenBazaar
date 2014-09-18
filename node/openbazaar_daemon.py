@@ -57,6 +57,7 @@ class OpenBazaarContext:
                  seed_mode,
                  dev_mode,
                  disable_upnp,
+                 disable_stun_check,
                  disable_open_browser,
                  enable_ip_checker):
         self.nat_status = nat_status
@@ -75,6 +76,7 @@ class OpenBazaarContext:
         self.seed_mode = seed_mode
         self.dev_mode = dev_mode
         self.disable_upnp = disable_upnp
+        self.disable_stun_check = disable_stun_check
         self.disable_open_browser = disable_open_browser
         self.enable_ip_checker = enable_ip_checker
 

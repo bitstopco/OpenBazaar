@@ -33,6 +33,7 @@ def getDefaults():
             'SEED_MODE': False,
             'SEED_HOSTNAMES': 'seed.openbazaar.org seed2.openbazaar.org seed.openlabs.co us.seed.bizarre.company eu.seed.bizarre.company'.split(),
             'DISABLE_UPNP': False,
+            'DISABLE_STUN_CHECK': False,
             'DISABLE_OPEN_DEFAULT_WEBBROWSER': False,
             'LOG_LEVEL': 10,  # CRITICAL=50, ERROR=40, WARNING=30, DEBUG=10, NOTSET=0
             'NODES': 3,
@@ -48,7 +49,10 @@ def getDefaults():
 
 def initArgumentParser(defaults):
 
-    parser = argparse.ArgumentParser(usage=usage())
+    parser = argparse.ArgumentParser(usage=usage(),
+                                     add_help=False)
+    parser.add_argument('-h', '--help',
+                        action='store_true')
 
     parser.add_argument('-i', '--server-public-ip', help='Server Public IP')
 
@@ -106,6 +110,11 @@ def initArgumentParser(defaults):
                         action='store_true',
                         default=defaults['DISABLE_UPNP'],
                         help='Disable automatic UPnP port mappings')
+
+    parser.add_argument('--disable-stun-check',
+                        action='store_true',
+                        default=defaults['DISABLE_STUN_CHECK'],
+                        help='Disable automatic port setting via STUN servers (NAT Punching attempt)')
 
     parser.add_argument('-S', '--seed-mode',
                         action='store_true',
@@ -191,6 +200,9 @@ openbazaar [options] <command>
     -j, --disable-upnp
         Disable automatic UPnP port mappings
 
+    --disable-stun-check
+        Disable automatic port setting via STUN servers (NAT Punching attempt)
+
     -S, --seed-mode
         Enable seed mode
 
@@ -206,7 +218,7 @@ openbazaar [options] <command>
 """
 
 
-def create_openbazaar_context(argument, default, nat_status):
+def create_openbazaar_context(arguments, defaults, nat_status):
     # TODO: if a --config file has been specified
     # first load config values from it
     # then override the rest that has been passed
@@ -215,7 +227,7 @@ def create_openbazaar_context(argument, default, nat_status):
     my_market_ip = ''
     if arguments.server_public_ip is not None:
         my_market_ip = arguments.server_public_ip
-    else:
+    elif nat_status is not None:
         print nat_status
         my_market_ip = nat_status['external_ip']
 
@@ -223,7 +235,7 @@ def create_openbazaar_context(argument, default, nat_status):
     my_market_port = defaults['SERVER_PORT']
     if arguments.server_public_port is not None and arguments.server_public_port != my_market_port:
         my_market_port = arguments.server_public_port
-    else:
+    elif nat_status is not None:
         import stun
         # let's try the external port if we're behind
         # a non symmetric nat (e.g. Full Cone, Restricted Cone)
@@ -304,6 +316,10 @@ def create_openbazaar_context(argument, default, nat_status):
     if arguments.disable_upnp:
         disable_upnp = True
 
+    disable_stun_check = defaults['DISABLE_STUN_CHECK']
+    if arguments.disable_stun_check:
+        disable_stun_check = True
+
     # disable open browser
     disable_open_browser = defaults['DISABLE_OPEN_DEFAULT_WEBBROWSER']
     if arguments.disable_open_browser:
@@ -330,6 +346,7 @@ def create_openbazaar_context(argument, default, nat_status):
                                                  seed_mode,
                                                  dev_mode,
                                                  disable_upnp,
+                                                 disable_stun_check,
                                                  disable_open_browser,
                                                  enable_ip_checker)
 
@@ -359,11 +376,12 @@ def ensure_database_setup(ob_ctx, defaults):
 
 
 def start(arguments, defaults):
-    """
-    """
     print "Checking NAT Status..."
     init_aditional_STUN_servers()
-    nat_status = check_NAT_status()
+
+    nat_status = None
+    if not arguments.disable_stun_check:
+        nat_status = check_NAT_status()
 
     ob_ctx = create_openbazaar_context(arguments, defaults, nat_status)
 
@@ -384,10 +402,16 @@ def start(arguments, defaults):
     ob_daemon_thread.join()
     # openbazaar_daemon.start_node(ob_ctx)
 
-if __name__ == '__main__':
+
+def main():
     defaults = getDefaults()
     parser = initArgumentParser(defaults)
     arguments = parser.parse_args()
+
+    if arguments.help:
+        usage()
+        print "Ending here"
+        return
 
     if is_osx():
         osx_check_dyld_library_path()
@@ -404,3 +428,6 @@ if __name__ == '__main__':
         print "\n[openbazaar] Invalid command '" + arguments.command + "'"
         print "[openbazaar] Valid commands are 'start', 'stop', 'status'."
         print "\n[openbazaar] Please try again.\n"
+
+if __name__ == '__main__':
+    main()

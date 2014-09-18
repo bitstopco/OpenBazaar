@@ -23,6 +23,7 @@ def getMockOpenBazaarContext():
                              seed_mode=False,
                              dev_mode=False,
                              disable_upnp=True,
+                             disable_stun_check=True,
                              disable_open_browser=True,
                              enable_ip_checker=False)
 
