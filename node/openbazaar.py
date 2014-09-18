@@ -1,7 +1,6 @@
 #!./env/bin/python
 # OpenBazaar's launcher script.
 import argparse
-import openbazaar_daemon
 import os
 from network_util import init_aditional_STUN_servers, check_NAT_status
 
@@ -51,8 +50,6 @@ def initArgumentParser(defaults):
 
     parser = argparse.ArgumentParser(usage=usage(),
                                      add_help=False)
-    parser.add_argument('-h', '--help',
-                        action='store_true')
 
     parser.add_argument('-i', '--server-public-ip', help='Server Public IP')
 
@@ -330,25 +327,26 @@ def create_openbazaar_context(arguments, defaults, nat_status):
     if arguments.enable_ip_checker:
         enable_ip_checker = True
 
-    ob_ctx = openbazaar_daemon.OpenBazaarContext(nat_status,
-                                                 my_market_ip,
-                                                 my_market_port,
-                                                 http_ip,
-                                                 http_port,
-                                                 db_path,
-                                                 log_path,
-                                                 log_level,
-                                                 market_id,
-                                                 bm_user,
-                                                 bm_pass,
-                                                 bm_port,
-                                                 seed_peers,
-                                                 seed_mode,
-                                                 dev_mode,
-                                                 disable_upnp,
-                                                 disable_stun_check,
-                                                 disable_open_browser,
-                                                 enable_ip_checker)
+    from openbazaar_daemon import OpenBazaarContext   # yes, please don't move this import from here.
+    ob_ctx = OpenBazaarContext(nat_status,
+                               my_market_ip,
+                               my_market_port,
+                               http_ip,
+                               http_port,
+                               db_path,
+                               log_path,
+                               log_level,
+                               market_id,
+                               bm_user,
+                               bm_pass,
+                               bm_port,
+                               seed_peers,
+                               seed_mode,
+                               dev_mode,
+                               disable_upnp,
+                               disable_stun_check,
+                               disable_open_browser,
+                               enable_ip_checker)
 
     return ob_ctx
 
@@ -387,31 +385,19 @@ def start(arguments, defaults):
 
     ensure_database_setup(ob_ctx, defaults)
 
-    print "Arguments:"
-    print arguments
-
-    print "\nOpenBazaarContextObject:"
-    print ob_ctx
-
-    from threading import Thread
-    ob_daemon_thread = Thread(target=openbazaar_daemon.start_node,
-                              name='openbazaar_daemon_thread',
-                              args=(ob_ctx,))
-    ob_daemon_thread.daemon = True
-    ob_daemon_thread.start()
-    ob_daemon_thread.join()
-    # openbazaar_daemon.start_node(ob_ctx)
+#     print "Arguments:"
+#     print arguments
+#
+#     print "\nOpenBazaarContextObject:"
+#     print ob_ctx
+    from openbazaar_daemon import start_node
+    start_node(ob_ctx)
 
 
 def main():
     defaults = getDefaults()
     parser = initArgumentParser(defaults)
     arguments = parser.parse_args()
-
-    if arguments.help:
-        usage()
-        print "Ending here"
-        return
 
     if is_osx():
         osx_check_dyld_library_path()

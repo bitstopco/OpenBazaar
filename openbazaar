@@ -1,1 +1,2 @@
-node/openbazaar.py
+#!/bin/bash
+./env/bin/python node/openbazaar.py "$@" &
