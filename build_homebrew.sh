@@ -30,10 +30,5 @@ if [ ! -d "./env" ]; then
   virtualenv env
 fi
 
-# set compile flags for brew's openssl instead of using brew link --force
-export CFLAGS="-I$(brew --prefix openssl)/include"
-export LDFLAGS="-L$(brew --prefix openssl)/lib"
-
-#install python deps inside our virtualenv
 ./env/bin/pip install ./pysqlcipher
 ./env/bin/pip install -r requirements.txt
