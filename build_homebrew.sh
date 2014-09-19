@@ -1,3 +1,3 @@
 #!/bin/bash
 
-which python
+echo "OpenBazaar configuration finished."
