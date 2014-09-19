@@ -1,7 +1,13 @@
 #!/bin/bash
 
-mv /Library/Caches/Homebrew/openbazaar--git ~/openbazaar #move file to users root
-cd ~/openbazaar
+#exit on error
+set -e
+
+function command_exists {
+  #this should be a very portable way of checking if something is on the path
+  #usage: "if command_exists foo; then echo it exists; fi"
+  type "$1" &> /dev/null
+}
 
 #python prerequisites
 #python may be owned by root, or it may be owned by the user
@@ -30,5 +36,10 @@ if [ ! -d "./env" ]; then
   virtualenv env
 fi
 
+# set compile flags for brew's openssl instead of using brew link --force
+export CFLAGS="-I$(brew --prefix openssl)/include"
+export LDFLAGS="-L$(brew --prefix openssl)/lib"
+
+#install python deps inside our virtualenv
 ./env/bin/pip install ./pysqlcipher
 ./env/bin/pip install -r requirements.txt
