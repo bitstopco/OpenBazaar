@@ -1,3 +1,7 @@
 #!/bin/bash
 
-echo "OpenBazaar configuration finished."
+mv /Library/Caches/Homebrew/openbazaar--git ~/openbazaar #move file to users root
+
+cd ~/openbazaar
+
+touch test.txt
