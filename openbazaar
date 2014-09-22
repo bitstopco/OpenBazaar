@@ -1,0 +1,122 @@
+#!/bin/bash
+
+option=$1
+
+function usage
+{
+cat << EOF
+Usage: openbazaar COMMAND [command-specific-options]
+  
+Primary help topics, type "openbazaar help:TOPIC" for more details:
+
+  start         #  start local node
+  stop          #  stop local node
+  update        #  update OpenBazaar
+  destroy       #  delete local node
+
+EOF
+}
+
+function usageStart
+{
+cat << EOF
+Usage: openbazaar start
+  
+Start Node
+
+Example:
+  
+  openbazaar start -p 8884
+  
+  -h                       #  Help information
+  -o                       #  Seed Mode
+  -i                       #  Server Public IP
+  -p                       #  Server Public Port (default 12345)
+  -k                       #  Web Interface IP (default 127.0.0.1; use 0.0.0.0 for any)
+  -q                       #  Web Interface Port (default random)
+  -l                       #  Log file
+  -d                       #  Development mode
+  -n                       #  Number of Dev nodes to start up
+  -a                       #  Bitmessage API username
+  -b                       #  Bitmessage API password
+  -c                       #  Bitmessage API port
+  -u                       #  Market ID
+  -j                       #  Disable upnp
+  -s                       #  List of additional seeds
+  -f                       #  Path to database file (default db/ob.db)
+  --disable-open-browser   #  Don't open the default web browser when OpenBazaar starts
+  --disable-sqlite-crypt   #  Disable encryption on sqlite database
+
+EOF
+}
+
+if [ -z "$option" ]
+then
+  openbazaar help
+else
+
+  if [[ "$option" == "help" ]] 
+  then
+    usage
+  fi  
+
+  if [[ "$option" == "help:start" ]] 
+  then
+    usageStart
+  fi
+
+  if [[ "$option" == "start" ]] 
+  then
+    echo "Starting OpenBazaar"
+    cd ~/OpenBazaar
+    ./run.sh "${*:2}"
+  fi
+
+  if [[ "$option" == "stop" ]] 
+  then
+    echo "Stoping OpenBazaar"
+    cd ~/OpenBazaar
+    ./stop.sh
+  fi
+
+  if [[ "$option" == "update" ]] 
+  then
+
+    read -p "Are you sure you want to update? (y/n) " RESP
+    if [ "$RESP" = "y" ]; then
+      echo "Updating OpenBazaar"
+
+      cd ~/OpenBazaar
+
+      ./stop.sh
+
+      git pull
+
+      echo "Done"
+    else
+      echo ":)"
+    fi
+
+  fi
+
+  if [[ "$option" == "destroy" ]] 
+  then
+    
+    read -p "You are about to delete OpenBazaar from your computer, everything will de lost. Are you Sure you want to do this? (y/n) " RESP
+    if [ "$RESP" = "y" ]; then
+      echo "Deleting OpenBazaar"
+
+      openbazaar stop
+
+      sudo rm -rf ~/OpenBazaar
+
+      sudo rm -rf /usr/local/bin/openbazaar
+
+      echo "Done"
+    else
+      echo ":)"
+    fi
+
+  fi
+
+fi
