@@ -75,6 +75,8 @@ function installMac {
   #more brew prerequisites
   brew install openssl zmq
 
+  openbazaarSource
+
   #python prerequisites
   #python may be owned by root, or it may be owned by the user
   PYTHON_OWNER=$(stat -n -f %u `which python`)
