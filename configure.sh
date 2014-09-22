@@ -110,7 +110,14 @@ function installMac {
   ./env/bin/pip install -r requirements.txt
   ./env/bin/pip install ./pysqlcipher
 
-  doneMessage
+  cp openbazaar /usr/local/bin/
+
+  echo ""
+  echo "OpenBazaar configuration finished."
+  echo ""
+  echo ""
+
+  openbazaar help
 }
 
 function doneMessage {
