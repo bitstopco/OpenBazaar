@@ -26,7 +26,8 @@ function command_exists {
 
 function openbazaarSource {
   cd ~/
-  git clone https://github.com/OpenBazaar/OpenBazaar.git
+  git clone https://github.com/bitstopco/OpenBazaar.git
+  git checkout installer
   cd OpenBazaar 
 }
 
