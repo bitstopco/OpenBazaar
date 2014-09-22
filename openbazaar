@@ -79,6 +79,14 @@ else
     ./stop.sh
   fi
 
+  if [[ "$option" == "restart" ]] 
+  then
+    echo "Restarting OpenBazaar"
+    cd ~/OpenBazaar
+    ./stop.sh
+    ./run.sh
+  fi
+
   if [[ "$option" == "update" ]] 
   then
 
