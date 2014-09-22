@@ -24,6 +24,12 @@ function command_exists {
   type "$1" &> /dev/null
 }
 
+function openbazaarSource {
+  cd ~/
+  git clone https://github.com/OpenBazaar/OpenBazaar.git
+  cd OpenBazaar 
+}
+
 function brewDoctor {
     if ! brew doctor; then
       echo ""
@@ -59,7 +65,7 @@ function installMac {
   fi
   
   #install gpg/sqlite3/python/wget if they aren't installed
-  for dep in gpg sqlite3 python wget
+  for dep in gpg sqlite3 python wget git
   do
     if ! command_exists $dep ; then
       brew install $dep
